@@ -4,7 +4,10 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Rect;
 import android.util.AttributeSet;
+import android.util.Log;
+import android.view.MotionEvent;
 import android.view.View;
 
 /**
@@ -12,9 +15,11 @@ import android.view.View;
  */
 public class TicTacToeView extends View {
 
-    public static final int LINE_STROKE_WIDTH = 5;
-    public static final int X_O_STROKE_WIDTH = 10;
+    private static final int LINE_STROKE_WIDTH = 5;
+    private static final int X_O_STROKE_WIDTH = 10;
+    private static final int BOARD_COLUMNS = 3;
     private Paint mPaint;
+    private TicTacToeCell[] boardCells = null;
 
     public TicTacToeView(Context context) {
         this(context, null);
@@ -36,6 +41,11 @@ public class TicTacToeView extends View {
 
     }
 
+    public void setBoardCells(TicTacToeCell[] cells) {
+        boardCells = cells;
+        invalidate();
+    }
+
     @Override
     protected void onDraw(Canvas canvas) {
         mPaint.setColor(Color.BLACK);
@@ -48,19 +58,69 @@ public class TicTacToeView extends View {
 
         mPaint.setColor(Color.DKGRAY);
         mPaint.setStrokeWidth(LINE_STROKE_WIDTH);
-        for (int columnLine = 0; columnLine < 2; columnLine++) {
+        for (int columnLine = 0; columnLine < (BOARD_COLUMNS-1); columnLine++) {
             int cx = horizontalOffset + ( (columnLine+1) * cellSize );
             canvas.drawLine(cx, verticalOffset, cx, verticalOffset + size, mPaint);
         }
-        for (int rowLine = 0; rowLine < 2; rowLine++) {
+        for (int rowLine = 0; rowLine < (BOARD_COLUMNS-1); rowLine++) {
             int cy = verticalOffset + ( (rowLine + 1) *  cellSize);
             canvas.drawLine(horizontalOffset, cy, horizontalOffset + size, cy, mPaint);
         }
         int inset = (int) (cellSize * 0.1);
 
-        mPaint.setColor(Color.WHITE);
-        mPaint.setStyle(Paint.Style.STROKE);
-        mPaint.setStrokeWidth(X_O_STROKE_WIDTH);
+        if (boardCells != null) {
+            mPaint.setColor(Color.WHITE);
+            mPaint.setStyle(Paint.Style.STROKE);
+            mPaint.setStrokeWidth(X_O_STROKE_WIDTH);
+
+            for (int i = 0; i < BOARD_COLUMNS; i++) {
+                for (int j = 0; j < BOARD_COLUMNS; j++) {
+                    Rect rect = new Rect( (horizontalOffset + (i * cellSize)) + inset,
+                            (verticalOffset + (j * cellSize)) + inset,
+                            ((horizontalOffset + (i * cellSize)) + cellSize) - inset,
+                            ((verticalOffset + (j * cellSize)) + cellSize) - inset
+                            );
+                    final TicTacToeCell cell = boardCells[getPosition(i, j)];
+                    if (cell.getCellState() == TicTacToeGame.TicTacToePossibility.NOUGHT) {
+                        canvas.drawCircle( (rect.right + rect.left) / 2,
+                                (rect.bottom + rect.top) / 2,
+                                (rect.right - rect.left) / 2,
+                                mPaint);
+                    }
+                    else if (cell.getCellState() == TicTacToeGame.TicTacToePossibility.CROSS) {
+                        canvas.drawLine( rect.left, rect.top, rect.right, rect.bottom, mPaint );
+                        canvas.drawLine( rect.left, rect.bottom, rect.right, rect.top, mPaint);
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        if (event.getAction() != MotionEvent.ACTION_UP) {
+            return true;
+        }
+        final int horizontalOffset = getHorizontalOffset();
+        final int verticalOffset = getVerticalOffset();
+        final int cellSize = getCellSize();
+        for (int i = 0; i < BOARD_COLUMNS; i++) {
+            for (int j = 0; j < BOARD_COLUMNS; j++) {
+                Rect r = new Rect( horizontalOffset + (i * cellSize),
+                        verticalOffset + (j * cellSize),
+                        (horizontalOffset + (i * cellSize)) + cellSize,
+                        (verticalOffset + (j * cellSize)) + cellSize  );
+                if (r.contains( (int)event.getX(), (int)event.getY() )) {
+                    Log.d("tictactoe", "Touch in " + getPosition(i, j) );
+                    return true;
+                }
+            }
+        }
+        return true;
+    }
+
+    private int getPosition(final int i, final int j) {
+        return (j * BOARD_COLUMNS) + i;
     }
 
     private int getBoardSize() {
@@ -80,50 +140,4 @@ public class TicTacToeView extends View {
         return ( getBoardSize() / 3 );
     }
 
-    /*
-
-    protected void onDraw(Canvas canvas) {
-        Paint paint = new Paint();
-        paint.setAntiAlias(true);
-        paint.setColor(Color.BLACK);
-        canvas.drawRect(0,0,canvas.getWidth(),canvas.getHeight(), paint);
-
-        int size = getSize();
-        int offsetX = getOffsetX();
-        int offsetY = getOffsetY();
-        int lineSize = getLineSize();
-
-        paint.setColor(Color.DKGRAY);
-        paint.setStrokeWidth( 5 );
-        for( int col = 0; col < 2; col++ ) {
-            int cx = offsetX + ( ( col + 1 ) * lineSize );
-            canvas.drawLine(cx, offsetY, cx, offsetY + size, paint);
-        }
-        for( int row = 0; row < 2; row++ ) {
-            int cy = offsetY + ( ( row + 1 ) * lineSize );
-            canvas.drawLine(offsetX, cy, offsetX + size, cy, paint);
-        }
-        int inset = (int) ( (float)lineSize * 0.1 );
-
-        paint.setColor(Color.WHITE);
-        paint.setStyle(Paint.Style.STROKE);
-        paint.setStrokeWidth( 10 );
-        for( int x = 0; x < 3; x++ ) {
-            for( int y = 0; y < 3; y++ ) {
-                Rect r = new Rect( ( offsetX + ( x * lineSize ) ) + inset,
-                        ( offsetY + ( y * lineSize ) ) + inset,
-                        ( ( offsetX + ( x * lineSize ) ) + lineSize ) - inset,
-                        ( ( offsetY + ( y * lineSize ) ) + lineSize ) - inset );
-                if ( GameService.getInstance().positions[ x ][ y ] == 1 ) {
-                    canvas.drawCircle( ( r.right + r.left ) / 2,
-                            ( r.bottom + r.top ) / 2,
-                            ( r.right - r.left ) / 2, paint);
-                }
-                if ( GameService.getInstance().positions[ x ][ y ] == 2 ) {
-                    canvas.drawLine( r.left, r.top, r.right, r.bottom, paint);
-                    canvas.drawLine( r.left, r.bottom, r.right, r.top, paint);
-                }
-            }
-        }
-    }*/
 }

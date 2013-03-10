@@ -5,6 +5,9 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 import org.bejug.tictactoe.client.websocket.TicTacToeWebsocketClient;
 import org.java_websocket.drafts.Draft_17;
@@ -13,13 +16,16 @@ import javax.inject.Inject;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-public class TicTacToeActivity extends Activity implements TicTacToeWebsocketClient.TicTacToeWSClientCallback {
+public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacToeGameCallback {
 
     private static String TAG = TicTacToeActivity.class.getSimpleName();
 
     @Inject TicTacToeGame game;
 
-    private TicTacToeWebsocketClient c;
+    private TicTacToeView board;
+    private TextView websocketState;
+    private TextView gameState;
+    private Button testButton;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -29,66 +35,42 @@ public class TicTacToeActivity extends Activity implements TicTacToeWebsocketCli
         ((TicTacToeApplication) getApplication()).inject(this);
 
         setContentView(R.layout.main);
-    }
 
-    public void showMessage1() {
-        Toast.makeText(this, "Waiting for other player", Toast.LENGTH_LONG).show();
-    }
-
-    public void showMessage2() {
-        Toast.makeText(this, "Game joined: playing p2", Toast.LENGTH_LONG).show();
-    }
-
-    public void showMessage3() {
-        Toast.makeText(this, "Game joined: playing p1", Toast.LENGTH_LONG).show();
-    }
-
-    @Override
-    public void onWSConnected() {
-        Log.d(TAG, "Websocket connected");
-    }
-
-    @Override
-    public void onWSMessageReceived(String msg) {
-        Log.d(TAG, " // message:: " + msg);
-        /*if ("p1".equalsIgnoreCase(msg)) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    showMessage1();
-                }
-            });
-        } else if ("p2".equalsIgnoreCase(msg)) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    showMessage2();
-                }
-            });
-        } else if ("p3".equalsIgnoreCase(msg)) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    showMessage3();
-                }
-            });
-        } else if (msg.startsWith("o")) {
-
-        } else if (msg.startsWith("x")) {
-
-        }*/
-
-        //mHandler.sendMessage(getMessage(msg));
-    }
-
-    @Override
-    public void onWSClose(int code, String reason) {
+        board = (TicTacToeView) findViewById(R.id.tictactoe_board);
+        websocketState = (TextView) findViewById(R.id.ws_state);
+        gameState = (TextView) findViewById(R.id.game_state);
+        testButton = (Button) findViewById(R.id.test_button);
+        testButton.setOnClickListener(clickListener);
 
     }
 
     @Override
-    public void onWSError(Exception e) {
-
+    public void onGameBoardChange(TicTacToeCell[] positions) {
+        board.setBoardCells(positions);
     }
+
+    @Override
+    public void onWebsocketConnectionChange(String state) {
+        websocketState.setText(state);
+    }
+
+    @Override
+    public void onGameStateChange(TicTacToeGame.GameState state) {
+        gameState.setText(state.name());
+    }
+
+    TextView.OnClickListener clickListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View view) {
+            TicTacToeCell[] cells = new TicTacToeCell[9];
+            for (int i = 0; i < 9; i++) {
+                cells[i] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.NONE);
+            }
+            cells[0] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.NOUGHT);
+            cells[2] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.NOUGHT);
+            cells[4] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.CROSS);
+            board.setBoardCells(cells);
+        }
+    };
 }
 

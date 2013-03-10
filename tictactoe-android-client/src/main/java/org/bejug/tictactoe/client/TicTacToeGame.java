@@ -37,7 +37,7 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
     public interface TicTacToeGameCallback {
         void onWebsocketConnectionChange(String state);
         void onGameStateChange(GameState gameState);
-        void onGameBoardChange();
+        void onGameBoardChange(TicTacToeCell[] positions);
     }
 
     public TicTacToeGame() {
@@ -67,12 +67,15 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         Log.d(TAG, "WS message received:: " + msg);
         if ("p1".equalsIgnoreCase(msg)) {
             setCurrentState(GameState.WAITING);
+            Log.d(TAG, "Waiting for other player");
         } else if ("p2".equalsIgnoreCase(msg)) {
             this.player = TicTacToePossibility.NOUGHT;
             setCurrentState(GameState.PLAYING);
+            Log.d(TAG, "Game joined, playing p2");
         } else if ("p3".equalsIgnoreCase(msg)) {
             this.player = TicTacToePossibility.CROSS;
             setCurrentState(GameState.PLAYING);
+            Log.d(TAG, "Game joined, playing p1");
         } else if (msg.startsWith("o")) {
 
         } else if (msg.startsWith("x")) {
@@ -138,7 +141,7 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
 
     private static TicTacToeGameCallback sDummyCallback = new TicTacToeGameCallback() {
         @Override
-        public void onGameBoardChange() {
+        public void onGameBoardChange(TicTacToeCell[] positions) {
 
         }
 
