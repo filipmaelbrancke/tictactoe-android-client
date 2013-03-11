@@ -2,30 +2,22 @@ package org.bejug.tictactoe.client;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Message;
-import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
-import android.widget.Toast;
-import org.bejug.tictactoe.client.websocket.TicTacToeWebsocketClient;
-import org.java_websocket.drafts.Draft_17;
 
 import javax.inject.Inject;
-import java.net.URI;
-import java.net.URISyntaxException;
 
-public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacToeGameCallback {
+public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacToeGameCallback, TicTacToeView.TicTacToeViewCallback {
 
     private static String TAG = TicTacToeActivity.class.getSimpleName();
 
-    @Inject TicTacToeGame game;
+    @Inject
+    TicTacToeGame game;
 
     private TicTacToeView board;
     private TextView websocketState;
     private TextView gameState;
-    private Button testButton;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -39,7 +31,11 @@ public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacT
         board = (TicTacToeView) findViewById(R.id.tictactoe_board);
         websocketState = (TextView) findViewById(R.id.ws_state);
         gameState = (TextView) findViewById(R.id.game_state);
-        testButton = (Button) findViewById(R.id.test_button);
+
+        game.setTicTacToeGameCallback(this);
+        board.setTicTacToeViewCallback(this);
+
+        Button testButton = (Button) findViewById(R.id.test_button);
         testButton.setOnClickListener(clickListener);
 
     }
@@ -57,6 +53,11 @@ public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacT
     @Override
     public void onGameStateChange(TicTacToeGame.GameState state) {
         gameState.setText(state.name());
+    }
+
+    @Override
+    public void onUserClickedCell(int position) {
+        game.onPLayersInput(position);
     }
 
     TextView.OnClickListener clickListener = new View.OnClickListener() {

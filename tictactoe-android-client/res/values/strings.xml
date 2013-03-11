@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ws-tictactoe</string>
+    <string name="app_name">JSR-356 TicTacToe</string>
     <string name="ws_state">Websocket state: </string>
     <string name="game_state">Game state: </string>
 </resources>

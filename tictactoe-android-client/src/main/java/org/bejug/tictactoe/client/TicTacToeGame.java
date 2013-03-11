@@ -18,6 +18,7 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
     private static final String TAG = TicTacToeGame.class.getSimpleName();
     private static final String SERVER_URL = "ws://ec2-54-242-90-129.compute-1.amazonaws.com:80/tictactoeserver/endpoint";
     private static final String WS_MESSAGE = "org.bejug.tictactoe.client.websocket_message";
+    private static final String WS_EVENT = "org.bejug.tictactoe.client.websocket_event";
 
     private GameState currentState;
     private TicTacToePossibility player = TicTacToePossibility.NONE;
@@ -32,6 +33,10 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
 
     public enum TicTacToePossibility {
         NONE, CROSS, NOUGHT
+    }
+
+    private enum WebsocketConnectionEvent {
+        CONNECTED, CLOSE, ERROR
     }
 
     public interface TicTacToeGameCallback {
@@ -63,6 +68,25 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         }
     }
 
+    public void onWebsocketConnectionEvent(final WebsocketConnectionEvent event, final String extra) {
+        switch (event) {
+            case CONNECTED:
+                Log.d(TAG, "Websocket connection:: connected");
+                mCallback.onWebsocketConnectionChange("CONNECTED");
+                break;
+
+            case CLOSE:
+                Log.d(TAG, "Websocket connection:: closed: " + extra);
+                mCallback.onWebsocketConnectionChange("CLOSED");
+                break;
+
+            case ERROR:
+                Log.d(TAG, "Websocket connection:: error: " + extra);
+                mCallback.onWebsocketConnectionChange("ERROR");
+                break;
+        }
+    }
+
     public void onWebsocketMessageInput(final String msg) {
         Log.d(TAG, "WS message received:: " + msg);
         if ("p1".equalsIgnoreCase(msg)) {
@@ -71,20 +95,33 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         } else if ("p2".equalsIgnoreCase(msg)) {
             this.player = TicTacToePossibility.NOUGHT;
             setCurrentState(GameState.PLAYING);
-            Log.d(TAG, "Game joined, playing p2");
+            Log.d(TAG, "Game joined, playing p2 with O, and my turn");
         } else if ("p3".equalsIgnoreCase(msg)) {
             this.player = TicTacToePossibility.CROSS;
-            setCurrentState(GameState.PLAYING);
-            Log.d(TAG, "Game joined, playing p1");
+            setCurrentState(GameState.WAITING);
+            Log.d(TAG, "Game joined, playing p1 with X, and other players turn");
         } else if (msg.startsWith("o")) {
-
+            final int position = Integer.parseInt(msg.substring(1));
+            updateCells(position, TicTacToePossibility.NOUGHT);
+            setCurrentState(GameState.PLAYING);
         } else if (msg.startsWith("x")) {
-
+            final int position = Integer.parseInt(msg.substring(1));
+            updateCells(position, TicTacToePossibility.CROSS);
+            setCurrentState(GameState.PLAYING);
         }
     }
 
-    public void onPLayersInput(final int cellLocation) {
+    private void updateCells(final int position, final TicTacToePossibility type) {
+        this.positions[position] = new TicTacToeCell(type);
+        this.currentState = GameState.PLAYING;
+    }
 
+    public void onPLayersInput(final int cellPosition) {
+        Log.d(TAG, "User clicked on cell " + cellPosition);
+        if (currentState == GameState.PLAYING) {
+            updateCells(cellPosition, this.player);
+            setCurrentState(GameState.WAITING);
+        }
     }
 
     private void setCurrentState(final GameState gameState) {
@@ -96,23 +133,33 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
 
     @Override
     public void onWSConnected() {
-        Log.d(TAG, "Websocket connection:: connected");
+        mWSConnectionHandler.sendMessage(getWSEventMessage(WebsocketConnectionEvent.CONNECTED, null));
     }
 
     @Override
     public void onWSMessageReceived(String msg) {
-        mWSMessageHandler.sendMessage(getMessage(msg));
+        mWSMessageHandler.sendMessage(getWSStringMessage(msg));
     }
 
     @Override
     public void onWSClose(int code, String reason) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        mWSConnectionHandler.sendMessage(getWSEventMessage(WebsocketConnectionEvent.CLOSE, reason));
     }
 
     @Override
     public void onWSError(Exception e) {
-        //To change body of implemented methods use File | Settings | File Templates.
+        mWSConnectionHandler.sendMessage(getWSEventMessage(WebsocketConnectionEvent.ERROR, e.getMessage()));
     }
+
+    Handler mWSConnectionHandler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            final Bundle bundle = msg.getData();
+            final WebsocketConnectionEvent _event = (WebsocketConnectionEvent) bundle.getSerializable(WS_EVENT);
+            final String _extra = bundle.getString(WS_MESSAGE);
+            onWebsocketConnectionEvent(_event, _extra);
+        }
+    };
 
     Handler mWSMessageHandler = new Handler() {
         @Override
@@ -123,7 +170,7 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         }
     };
 
-    private Message getMessage(final String msg) {
+    private Message getWSStringMessage(final String msg) {
         final Bundle bundle = new Bundle();
         final Message message = mWSMessageHandler.obtainMessage();
         bundle.putString(WS_MESSAGE, msg);
@@ -131,27 +178,36 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         return message;
     }
 
-    public void setTicTacToeGameCallback(TicTacToeGameCallback clbck) {
-        if (clbck == null) {
+    private Message getWSEventMessage(final WebsocketConnectionEvent event, final String extraInfo) {
+        final Bundle bundle = new Bundle();
+        final Message message = mWSConnectionHandler.obtainMessage();
+        bundle.putSerializable(WS_EVENT, event);
+        bundle.putString(WS_MESSAGE, extraInfo);
+        message.setData(bundle);
+        return message;
+    }
+
+    public void setTicTacToeGameCallback(TicTacToeGameCallback callback) {
+        if (callback == null) {
             mCallback = sDummyCallback;
         } else {
-            mCallback = clbck;
+            mCallback = callback;
         }
     }
 
     private static TicTacToeGameCallback sDummyCallback = new TicTacToeGameCallback() {
         @Override
-        public void onGameBoardChange(TicTacToeCell[] positions) {
+        public void onGameBoardChange(final TicTacToeCell[] positions) {
 
         }
 
         @Override
-        public void onWebsocketConnectionChange(String state) {
+        public void onWebsocketConnectionChange(final String state) {
 
         }
 
         @Override
-        public void onGameStateChange(GameState gameState) {
+        public void onGameStateChange(final GameState gameState) {
 
         }
     };

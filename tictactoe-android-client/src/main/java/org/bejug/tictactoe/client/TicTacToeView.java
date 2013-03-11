@@ -15,11 +15,18 @@ import android.view.View;
  */
 public class TicTacToeView extends View {
 
+    private static final String TAG = TicTacToeView.class.getSimpleName();
+
     private static final int LINE_STROKE_WIDTH = 5;
     private static final int X_O_STROKE_WIDTH = 10;
     private static final int BOARD_COLUMNS = 3;
     private Paint mPaint;
     private TicTacToeCell[] boardCells = null;
+    private TicTacToeViewCallback mCallback = sDummyCallback;
+
+    public interface TicTacToeViewCallback {
+        void onUserClickedCell(int position);
+    }
 
     public TicTacToeView(Context context) {
         this(context, null);
@@ -112,6 +119,7 @@ public class TicTacToeView extends View {
                         (verticalOffset + (j * cellSize)) + cellSize  );
                 if (r.contains( (int)event.getX(), (int)event.getY() )) {
                     Log.d("tictactoe", "Touch in " + getPosition(i, j) );
+                    mCallback.onUserClickedCell(getPosition(i, j));
                     return true;
                 }
             }
@@ -140,4 +148,18 @@ public class TicTacToeView extends View {
         return ( getBoardSize() / 3 );
     }
 
+    public void setTicTacToeViewCallback(TicTacToeViewCallback callback) {
+        if (callback == null) {
+            mCallback = sDummyCallback;
+        } else {
+            mCallback = callback;
+        }
+    }
+
+    private static TicTacToeViewCallback sDummyCallback = new TicTacToeViewCallback() {
+        @Override
+        public void onUserClickedCell(final int position) {
+            Log.d(TAG, "User clicked on cell " + position);
+        }
+    };
 }
