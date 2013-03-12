@@ -11,7 +11,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 /**
- *
+ * @author Filip Maelbrancke
  */
 public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClientCallback {
 
@@ -20,7 +20,7 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
     private static final String WS_MESSAGE = "org.bejug.tictactoe.client.websocket_message";
     private static final String WS_EVENT = "org.bejug.tictactoe.client.websocket_event";
 
-    private GameState currentState;
+    private GameState currentState = GameState.INIT;
     private TicTacToePossibility player = TicTacToePossibility.NONE;
     private TicTacToeGameCallback mCallback = sDummyCallback;
     private TicTacToeWebsocketClient wsClient;
@@ -39,6 +39,10 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         CONNECTED, CLOSE, ERROR
     }
 
+    public enum CellState {
+        NORMAL, WINNER, LOSER
+    }
+
     public interface TicTacToeGameCallback {
         void onWebsocketConnectionChange(String state);
         void onGameStateChange(GameState gameState);
@@ -50,15 +54,20 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
     }
 
     private void initGame() {
-        this.currentState = GameState.INIT;
+        setCurrentState(GameState.INIT);
+    }
+
+    private void initializeGameState() {
+        this.player = TicTacToePossibility.NONE;
         // initialize the tictactoe positions
         positions = new TicTacToeCell[9];
         for (int i = 0; i < 9; i++) {
-            positions[i] = new TicTacToeCell(TicTacToePossibility.NONE);
+            positions[i] = new TicTacToeCell(TicTacToePossibility.NONE, CellState.NORMAL);
         }
     }
 
     public void startGame() {
+        initializeGameState();
         try {
             wsClient = new TicTacToeWebsocketClient(new URI(SERVER_URL), new Draft_17());
             wsClient.setTicTacToeWSClientCallback(this);
@@ -66,10 +75,19 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         } catch (URISyntaxException e) {
             Log.e(TAG, "WebSocket exception: " + e.getMessage());
         }
+        mCallback.onGameBoardChange(positions);
+    }
+
+    private void endGame() {
+        wsClient.close();
     }
 
     public GameState getGameState() {
         return this.currentState;
+    }
+
+    public TicTacToeCell[] getPositions() {
+        return this.positions;
     }
 
     public void onWebsocketConnectionEvent(final WebsocketConnectionEvent event, final String extra) {
@@ -105,13 +123,13 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
             setCurrentState(GameState.WAITING);
             Log.d(TAG, "Game joined, playing p1 with X, and other players turn");
         } else if (msg.startsWith("o")) {
+            setCurrentState(GameState.PLAYING);
             final int position = Integer.parseInt(msg.substring(1));
             updateCells(position, TicTacToePossibility.NOUGHT);
-            setCurrentState(GameState.PLAYING);
         } else if (msg.startsWith("x")) {
+            setCurrentState(GameState.PLAYING);
             final int position = Integer.parseInt(msg.substring(1));
             updateCells(position, TicTacToePossibility.CROSS);
-            setCurrentState(GameState.PLAYING);
         }
     }
 
@@ -123,23 +141,87 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
 
     private void updateCells(final int position, final TicTacToePossibility type) {
         this.currentState = GameState.PLAYING;
-        this.positions[position] = new TicTacToeCell(type);
+        this.positions[position] = new TicTacToeCell(type, CellState.NORMAL);
+        checkForWinner(type);
         mCallback.onGameBoardChange(this.positions);
     }
 
     public void onPLayersInput(final int cellPosition) {
-        Log.d(TAG, "User clicked on cell " + cellPosition);
         if (currentState == GameState.PLAYING) {
             setCurrentState(GameState.WAITING);
-            updateCells(cellPosition, this.player);
             final String wsMessage = (this.player == TicTacToePossibility.CROSS) ? "x" + cellPosition : "o" + cellPosition;
             sendWebsocketMessage(wsMessage);
+            updateCells(cellPosition, this.player);
         }
     }
 
     private void setCurrentState(final GameState gameState) {
         this.currentState = gameState;
         mCallback.onGameStateChange(gameState);
+    }
+
+    /**
+     * Check if the game is a draw (i.e. no more empty cells)
+     * @return boolean
+     */
+    private boolean isDraw() {
+        for (TicTacToeCell position : positions) {
+            if (position.getCellType() == TicTacToePossibility.NONE) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private void checkForWinner(final TicTacToePossibility lastPlayedType) {
+        CellState potentialCellState = (lastPlayedType.equals(this.player)) ? CellState.WINNER : CellState.LOSER;
+        GameState potentialGameState = (lastPlayedType.equals(TicTacToePossibility.CROSS)) ?  GameState.CROSS_WON: GameState.NOUGHT_WON;
+        for (int i = 0; i < 3; i++) {
+            // horizontal
+            if ( (positions[i * 3].getCellType() == lastPlayedType) && (positions[i * 3 + 1].getCellType() == lastPlayedType) && (positions[i * 3 + 2].getCellType() == lastPlayedType) ) {
+                positions[i * 3].setCellState(potentialCellState);
+                positions[i * 3 + 1].setCellState(potentialCellState);
+                positions[i * 3 + 2].setCellState(potentialCellState);
+                setCurrentState(potentialGameState);
+                endGame();
+                return;
+            }
+            // vertical
+            if ( (positions[i].getCellType() == lastPlayedType) && (positions[i + 3].getCellType() == lastPlayedType) && (positions[i + 6].getCellType() == lastPlayedType) ) {
+                positions[i].setCellState(potentialCellState);
+                positions[i + 3].setCellState(potentialCellState);
+                positions[i + 6].setCellState(potentialCellState);
+                setCurrentState(potentialGameState);
+                endGame();
+                return;
+            }
+        }
+        // diagonal
+        if ( (positions[0].getCellType() == lastPlayedType) && (positions[4].getCellType() == lastPlayedType) && (positions[8].getCellType() == lastPlayedType) ) {
+            positions[0].setCellState(potentialCellState);
+            positions[4].setCellState(potentialCellState);
+            positions[8].setCellState(potentialCellState);
+            setCurrentState(potentialGameState);
+            endGame();
+            return;
+        }
+        // opposite diagonal
+        if ( (positions[2].getCellType() == lastPlayedType) && (positions[4].getCellType() == lastPlayedType) && (positions[6].getCellType() == lastPlayedType) ) {
+            positions[2].setCellState(potentialCellState);
+            positions[4].setCellState(potentialCellState);
+            positions[6].setCellState(potentialCellState);
+            setCurrentState(potentialGameState);
+            endGame();
+            return;
+        }
+        if (isDraw()) {
+            // set all cells to loser if the game is a draw
+            for (TicTacToeCell cell : positions) {
+                cell.setCellState(CellState.LOSER);
+            }
+            setCurrentState(GameState.DRAW);
+            endGame();
+        }
     }
 
     // Methods to handle the websocket events

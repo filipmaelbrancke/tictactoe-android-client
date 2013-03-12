@@ -11,7 +11,7 @@ import android.view.MotionEvent;
 import android.view.View;
 
 /**
- *
+ * @author Filip Maelbrancke
  */
 public class TicTacToeView extends View {
 
@@ -88,13 +88,20 @@ public class TicTacToeView extends View {
                             ((verticalOffset + (j * cellSize)) + cellSize) - inset
                             );
                     final TicTacToeCell cell = boardCells[getPosition(i, j)];
-                    if (cell.getCellState() == TicTacToeGame.TicTacToePossibility.NOUGHT) {
-                        canvas.drawCircle( (rect.right + rect.left) / 2,
+                    if (cell.getCellState() == TicTacToeGame.CellState.WINNER) {
+                        mPaint.setColor(Color.GREEN);
+                    } else if (cell.getCellState() == TicTacToeGame.CellState.LOSER) {
+                        mPaint.setColor(Color.RED);
+                    } else {
+                        mPaint.setColor(Color.WHITE);
+                    }
+                    if (cell.getCellType() == TicTacToeGame.TicTacToePossibility.NOUGHT) {
+                        canvas.drawCircle((rect.right + rect.left) / 2,
                                 (rect.bottom + rect.top) / 2,
                                 (rect.right - rect.left) / 2,
                                 mPaint);
                     }
-                    else if (cell.getCellState() == TicTacToeGame.TicTacToePossibility.CROSS) {
+                    else if (cell.getCellType() == TicTacToeGame.TicTacToePossibility.CROSS) {
                         canvas.drawLine( rect.left, rect.top, rect.right, rect.bottom, mPaint );
                         canvas.drawLine( rect.left, rect.bottom, rect.right, rect.top, mPaint);
                     }

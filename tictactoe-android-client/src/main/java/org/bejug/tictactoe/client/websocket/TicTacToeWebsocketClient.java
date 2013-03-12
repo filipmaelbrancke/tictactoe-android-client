@@ -8,7 +8,7 @@ import org.java_websocket.handshake.ServerHandshake;
 import java.net.URI;
 
 /**
- *
+ * @author Filip Maelbrancke
  */
 public class TicTacToeWebsocketClient extends WebSocketClient {
 
