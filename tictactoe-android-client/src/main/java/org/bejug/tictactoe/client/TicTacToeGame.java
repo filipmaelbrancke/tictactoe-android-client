@@ -58,7 +58,7 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         }
     }
 
-    private void startGame() {
+    public void startGame() {
         try {
             wsClient = new TicTacToeWebsocketClient(new URI(SERVER_URL), new Draft_17());
             wsClient.setTicTacToeWSClientCallback(this);
@@ -66,6 +66,10 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         } catch (URISyntaxException e) {
             Log.e(TAG, "WebSocket exception: " + e.getMessage());
         }
+    }
+
+    public GameState getGameState() {
+        return this.currentState;
     }
 
     public void onWebsocketConnectionEvent(final WebsocketConnectionEvent event, final String extra) {
@@ -111,16 +115,25 @@ public class TicTacToeGame implements TicTacToeWebsocketClient.TicTacToeWSClient
         }
     }
 
+    private void sendWebsocketMessage(final String msg) {
+        if (wsClient != null) {
+            wsClient.send(msg);
+        }
+    }
+
     private void updateCells(final int position, final TicTacToePossibility type) {
-        this.positions[position] = new TicTacToeCell(type);
         this.currentState = GameState.PLAYING;
+        this.positions[position] = new TicTacToeCell(type);
+        mCallback.onGameBoardChange(this.positions);
     }
 
     public void onPLayersInput(final int cellPosition) {
         Log.d(TAG, "User clicked on cell " + cellPosition);
         if (currentState == GameState.PLAYING) {
-            updateCells(cellPosition, this.player);
             setCurrentState(GameState.WAITING);
+            updateCells(cellPosition, this.player);
+            final String wsMessage = (this.player == TicTacToePossibility.CROSS) ? "x" + cellPosition : "o" + cellPosition;
+            sendWebsocketMessage(wsMessage);
         }
     }
 

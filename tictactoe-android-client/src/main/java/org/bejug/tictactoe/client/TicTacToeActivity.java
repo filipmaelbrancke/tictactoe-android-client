@@ -18,6 +18,7 @@ public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacT
     private TicTacToeView board;
     private TextView websocketState;
     private TextView gameState;
+    private Button gameControlButton;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -35,8 +36,12 @@ public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacT
         game.setTicTacToeGameCallback(this);
         board.setTicTacToeViewCallback(this);
 
-        Button testButton = (Button) findViewById(R.id.test_button);
-        testButton.setOnClickListener(clickListener);
+        gameControlButton = (Button) findViewById(R.id.game_control_button);
+        gameControlButton.setOnClickListener(gameControlButtonListener);
+
+        if (game.getGameState() == TicTacToeGame.GameState.INIT) {
+            gameControlButton.setVisibility(View.VISIBLE);
+        }
 
     }
 
@@ -60,17 +65,11 @@ public class TicTacToeActivity extends Activity implements TicTacToeGame.TicTacT
         game.onPLayersInput(position);
     }
 
-    TextView.OnClickListener clickListener = new View.OnClickListener() {
+    View.OnClickListener gameControlButtonListener = new View.OnClickListener() {
         @Override
         public void onClick(View view) {
-            TicTacToeCell[] cells = new TicTacToeCell[9];
-            for (int i = 0; i < 9; i++) {
-                cells[i] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.NONE);
-            }
-            cells[0] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.NOUGHT);
-            cells[2] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.NOUGHT);
-            cells[4] = new TicTacToeCell(TicTacToeGame.TicTacToePossibility.CROSS);
-            board.setBoardCells(cells);
+            game.startGame();
+            gameControlButton.setVisibility(View.GONE);
         }
     };
 }
